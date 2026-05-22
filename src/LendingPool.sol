@@ -472,6 +472,9 @@ contract LendingPool {
         uint256 elapsed = block.timestamp - lastAccrualTimestamp;
         if (elapsed == 0) return borrowIndex;
         uint256 annualRate = getBorrowRate(getUtilization());
+        // 把年化利率按经过时间折算成本段利息因子
+        // 本次时间片的利息比例”（这一小段时间的涨幅，不是累计总涨幅）
+        // 比如年化 12%，过了半年，那么 interestFactor 约等于 6%
         uint256 interestFactor = (annualRate * elapsed) / SECONDS_PER_YEAR;
         return borrowIndex + (borrowIndex * interestFactor) / WAD;
     }

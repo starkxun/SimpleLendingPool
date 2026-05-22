@@ -124,6 +124,70 @@ pendingIndex = borrowIndex + borrowIndex * pendingInterestFactor
 userDebt = userPrincipal * pendingIndex / RAY
 ```
 
+5. borrowIndex 的直觉含义
+
+```text
+borrowIndex 是“全局累计债务倍率”。
+初始 borrowIndex = RAY（即 1.0 倍）。
+随着时间推移和计息，borrowIndex 只会逐步增大。
+```
+
+```text
+用户债务不是直接存当前金额，而是读取时再还原：
+debtNow = principal * borrowIndexNow / RAY
+```
+
+6. interestFactor 是什么，和 borrowIndex 什么关系
+
+```text
+interestFactor = annualRate * elapsed / SECONDS_PER_YEAR
+```
+
+```text
+interestFactor 表示“本次时间片利息比例”（增量）。
+borrowIndex 表示“历史累计后的总倍率”（存量）。
+```
+
+```text
+二者关系：
+newBorrowIndex = oldBorrowIndex + oldBorrowIndex * interestFactor / WAD
+              = oldBorrowIndex * (1 + interestFactor / WAD)
+```
+
+7. 为什么要存标准化本金 principal（而不是直接存当前债务）
+
+```text
+标准化：principal = debtAtAction * RAY / borrowIndexAtAction
+还原：  debtNow    = principal * borrowIndexNow / RAY
+```
+
+这样做的意义：
+
+```text
+不需要给每个用户逐个写利息；
+只更新一次全局 borrowIndex，所有用户债务在读取时自动反映累计利息。
+```
+
+8. 完整数值例子（借款 -> 计息 -> 还款后再标准化）
+
+```text
+初始：borrowIndex = 1.00（RAY）
+用户借款：100
+=> principal = 100 / 1.00 = 100
+
+一段时间后：interestFactor = 10%
+=> borrowIndex = 1.00 * (1 + 10%) = 1.10
+
+此时债务：debtNow = 100 * 1.10 = 110
+
+若用户还款 30：
+newDebt = 110 - 30 = 80
+newPrincipal = 80 / 1.10 = 72.7272...
+
+后续继续计息时，只需要让 borrowIndex 继续增长，
+再用 debt = principal * latestIndex / RAY 还原即可。
+```
+
 ### 3. 存款凭证（lToken）与汇率
 
 1. 汇率（exchangeRate）
