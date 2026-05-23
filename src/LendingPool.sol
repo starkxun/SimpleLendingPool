@@ -274,7 +274,8 @@ contract LendingPool {
     }
 
     // ── lToken 汇率计算 ──────────────────────────────────────
-
+    // supply: lToken 总发行量
+    // totalAssets： 池子的总资产价值（按borrowAssets计价，不包含抵押物资产）
     function exchangeRate() public view returns (uint256) {
         uint256 supply = lToken.totalSupply();
         if (supply == 0) return WAD; // 初始 1:1
@@ -467,7 +468,7 @@ contract LendingPool {
         return (collateralValueInBorrow * LTV) / WAD;
     }
 
-    /// @notice 预估当前 borrowIndex（含尚未 accrue 的 pending 利息），用于 view 函数
+    /// @notice 预估当前 borrowIndex，用于 view 函数
     function _pendingBorrowIndex() internal view returns (uint256) {
         uint256 elapsed = block.timestamp - lastAccrualTimestamp;
         if (elapsed == 0) return borrowIndex;

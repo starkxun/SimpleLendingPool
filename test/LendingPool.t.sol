@@ -117,7 +117,7 @@ contract LendingPoolTest is Test {
     }
 
     function test_Deposit_ExchangeRateGrows_AfterInterest() public {
-        // 1. Alice 存款
+        // 1. Alice 存款(注入流动性)
         vm.prank(alice);
         pool.deposit(10_000e18);
 
@@ -137,6 +137,13 @@ contract LendingPoolTest is Test {
 
         // exchangeRate > 1 说明有利息累积
         assertGt(exchangeRateBefore, WAD, "exchange rate should grow over time");
+        
+        // 计算调用逻辑：
+        // 1. 计算利用率：100 / 100_000 = 1% (参考 getUtilization() 函数)
+        // 2. 计算借款年化率：2% + 0.125 * 1% = 2.125%  (参考 getBorrowRate() 函数) 
+        // 3. 预估 borrowIndex (borrowIndex 初始值为 RAY)： 1 + 2.125% (参考 _pendingBorrowIndex() 函数)
+        // 4. 读取新的 exchangeRate： (100 * 1.02125 + 9_900) / 100_00  = 1.0002125 (参考 exchangeRate() 函数)
+        // exchangeRate() 是 view 函数，不改变链上状态，属于推演
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -174,6 +181,8 @@ contract LendingPoolTest is Test {
         // 利率约 2%，1 年后 index 应约增加 2%
         // indexAfter ≈ RAY * 1.02
         assertApproxEqRel(indexAfter, RAY * 102 / 100, 0.01e18, "index should grow ~2% at low utilization");
+    
+        // 具体计算调用逻辑同 test_Deposit_ExchangeRateGrows_AfterInterest 函数
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -270,16 +279,16 @@ contract LendingPoolTest is Test {
         // 3. 推进大量时间使利息累积，债务超过清算阈值
         //    10 WETH * 2 * 80% = 16 USDC threshold
         //    债务需超过 16 USDC，即利息超过 1 USDC（6.67%）
-        skip(400 days);
+        skip(1500 days);
         pool.accrueInterest();
 
         uint256 hfAfter = pool.healthFactor(bob);
-        console2.log("HF after 400 days:", hfAfter * 100 / WAD, "%");
+        console2.log("HF after 1500 days:", hfAfter * 100 / WAD, "%");
 
         // 若 HF < 1，可以被清算
         if (hfAfter < WAD) {
             console2.log("Bob is liquidatable!");
-
+            
             uint256 bobDebt = pool.getBorrowBalance(bob);
             uint256 repayAmount = bobDebt / 2; // 还一半（部分清算）
 
